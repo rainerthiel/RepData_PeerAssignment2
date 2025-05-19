@@ -1,0 +1,36 @@
+---
+title: "Reproducible Research: Peer Assessment 2"
+author: "SlowLearner"
+date: "`r Sys.Date()`"
+output: 
+  html_document:
+    toc: TRUE  
+    keep_md: true
+---
+
+## Introduction
+
+### Data
+
+### Loading and preprocessing the data
+
+
+## Assignment Questions
+
+### Question 1
+
+::: {style="text-align: right;"}
+[top](#TOC)
+:::
+
+------------------------------------------------------------------------
+
+### Question 2
+
+::: {style="text-align: right;"}
+[top](#TOC)
+:::
+
+> *"What is the average daily activity pattern?"*
+
+<p style="text-align: center;">ooo0ooo</p>
