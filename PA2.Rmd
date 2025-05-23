@@ -4,33 +4,167 @@ author: "SlowLearner"
 date: "`r Sys.Date()`"
 output: 
   html_document:
-    toc: TRUE  
+    toc: TRUE
+    toc_depth: 4
+    toc_float: TRUE
     keep_md: true
 ---
 
 ## Introduction
 
-### Data
+Storms and other severe weather events can cause both public health and economic problems for communities and municipalities. Many severe events can result in fatalities, injuries, and property damage, and preventing such outcomes to the extent possible is a key concern.<br/> This project involves exploring the U.S. National Oceanic and Atmospheric Administration's (NOAA) storm database. This database tracks characteristics of major storms and weather events in the United States, including when and where they occur, as well as estimates of any fatalities, injuries, and property damage.
 
-### Loading and preprocessing the data
+## Synopsis
 
+The objective of our analysis is to use the NOAA storm database to answer the following questions.
 
-## Assignment Questions
+Q1. Across the United States, which types of events (as indicated in the EVTYPE variable) are most harmful with respect to population health?
 
-### Question 1
+Q2. Across the United States, which types of events have the greatest economic consequences?
 
-::: {style="text-align: right;"}
-[top](#TOC)
-:::
+We shall use the fatalities and injuries variables (`FATALITIES`, `INJURIES`) to identify event types [most harmful to population health]{.underline} (Q1)<br/> Fatalities and injuries variables are expressed as a count of individuals affected.<br/><br/> We shall use the property and crop damage variables (`PROPDMG`, `CROPDMG`) to identify event types with the [greatest economic consequences]{.underline} (Q2)<br/> Property and crop damage variables are expressed as dollar amounts.<br/><br/> We are not expected to qualify our analysis results either by location or date.
 
 ------------------------------------------------------------------------
 
-### Question 2
+## Data Processing and Analysis
 
-::: {style="text-align: right;"}
-[top](#TOC)
-:::
+### Setup
 
-> *"What is the average daily activity pattern?"*
+Load required libraries, assign work variables and show session information.
 
-<p style="text-align: center;">ooo0ooo</p>
+```{r}
+library(ggplot2)
+library(dplyr)
+library(kableExtra)
+
+local_zip <- "StormData.bz2"
+local_csv <- "StormData.csv"
+source_url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
+data_dir <- "./Data"
+sessionInfo()
+```
+
+------------------------------------------------------------------------
+
+### Data preparation
+
+#### Retrieve source data
+
+The source data for analysis is a compressed comma separated values (.csv) located at <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2>.
+
+We start with this web-located file on cloudfront.net:\
+1. The file is downloaded to a local file folder.
+
+```{r}
+    local_zip <- paste(data_dir, local_zip, sep='/')
+
+    if (!dir.exists(data_dir)) dir.create(data_dir)
+    if(!file.exists(local_zip)) {
+        download.file(source_url, destfile=local_zip , mode='wb')
+    }
+
+```
+
+#### Load data into R environment
+
+2.  Create the analysis input dataset `local_csv` using the `read.table` command (no need need to unzip the compressed file separately, this command handles automatically)
+3.  Provide some basic stats about the file created.
+
+```{r cache=TRUE}
+    storms_data <- read.table(local_zip, sep=',', header=TRUE)
+```
+
+##### Loaded analysis data overview
+
+```{r results='hide'}
+typ <- class(storms_data)
+nro <- nrow(storms_data)
+nva <- ncol(storms_data)
+icv <- complete.cases(storms_data)
+nic <- nro - length(icv[icv == FALSE])
+```
+
+-   `storms_data` is of type `r typ`.
+-   It contains *`r nro`* observations.
+-   Each observation has *`r nva`* variables.
+-   There are *`r nic`* incomplete cases in the data
+-   Compact structure display
+
+```{r}
+str(storms_data)
+```
+
+#### Discard noise
+
+Remove attributes not required for the analysis and free unused memory.
+
+```{r}
+storms_abbr <- select(storms_data,c('EVTYPE',
+                                    'FATALITIES',
+                                    'INJURIES',
+                                    'PROPDMG',
+                                    'CROPDMG'))
+str(storms_abbr)
+gc()
+```
+
+------------------------------------------------------------------------
+
+### Data Analysis
+
+The prepared file `storms_abbr)` is:
+
+-   is grouped by event type `EVTYPE`
+-   summarized to provide totals of each variable under scrutiny.
+
+Results are stored in `results_data`.
+
+```{r}
+summary_data <- summarize(group_by(storms_abbr, EVTYPE),
+                          totFATALITIES = sum(FATALITIES),
+                          totINJURIES = sum(INJURIES),
+                          totPROPDMG = sum(PROPDMG),
+                          totCROPDMG = sum(CROPDMG))
+summary(summary_data)
+
+results_data <- summary_data %>%
+                filter(totFATALITIES == max(totFATALITIES) |
+                       totINJURIES == max(totINJURIES) | 
+                           totPROPDMG == max(totPROPDMG) | totCROPDMG == max(totCROPDMG))
+
+
+```
+
+## Results
+
+The table below shows the event types that have the severest impact in terms of:
+
+-   Health (Question 1)
+
+    -   fatalities
+    -   injuries
+
+-   Economic consequences (Question 2)
+
+    -   property damage
+    -   crop damage
+
+    ```{r}
+    colnames(results_data) <- c("Event Type",
+                              "Total Fatalities",
+                              "Total Injuries",
+                              "Total Property Damage",
+                              "Total Crop Damage")
+    results_data %>% 
+                 kbl(caption = "Table 1: Storm event types with severest impact") %>% 
+                 add_header_above(c(" ", "Health" = 2, "Economic" = 2)) %>%
+                 kable_material(c("basic"))
+    ```
+
+    > *Tornadoes* are the most destructive storm events regarding fatalities, injuries and property damage.<br/><br/>*Hail* storms do the most damage to crops. Although tornadoes also wreak havoc to crops, the economic impact of hail storms is close to six times greater!
+
+<p style="text-align: center;">
+
+<strong>----- End -----</strong>
+
+</p>
