@@ -36,6 +36,7 @@ Load required libraries, assign work variables and show session information.
 library(ggplot2)
 library(dplyr)
 library(kableExtra)
+library(gridExtra)
 
 local_zip <- "StormData.bz2"
 local_csv <- "StormData.csv"
@@ -52,8 +53,7 @@ sessionInfo()
 
 The source data for analysis is a compressed comma separated values (.csv) located at <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2>.
 
-We start with this web-located file on cloudfront.net:\
-1. The file is downloaded to a local file folder.
+We start with this web-located file on cloudfront.net: 1. The file is downloaded to a local file folder.
 
 ```{r}
     local_zip <- paste(data_dir, local_zip, sep='/')
@@ -114,8 +114,8 @@ gc()
 
 The prepared file `storms_abbr)` is:
 
--   is grouped by event type `EVTYPE`
--   summarized to provide totals of each variable under scrutiny.
+-   grouped by event type `EVTYPE`
+-   summarized to provide totals of each variable under scrutiny
 
 Results are stored in `results_data`.
 
@@ -130,7 +130,8 @@ summary(summary_data)
 results_data <- summary_data %>%
                 filter(totFATALITIES == max(totFATALITIES) |
                        totINJURIES == max(totINJURIES) | 
-                           totPROPDMG == max(totPROPDMG) | totCROPDMG == max(totCROPDMG))
+                           totPROPDMG == max(totPROPDMG) |
+                           totCROPDMG == max(totCROPDMG))
 
 
 ```
@@ -156,15 +157,82 @@ The table below shows the event types that have the severest impact in terms of:
                               "Total Property Damage",
                               "Total Crop Damage")
     results_data %>% 
-                 kbl(caption = "Table 1: Storm event types with severest impact") %>% 
+                 kbl(caption = "Figure 1: Storm event types with severest impact") %>% 
                  add_header_above(c(" ", "Health" = 2, "Economic" = 2)) %>%
                  kable_material(c("basic"))
     ```
 
     > *Tornadoes* are the most destructive storm events regarding fatalities, injuries and property damage.<br/><br/>*Hail* storms do the most damage to crops. Although tornadoes also wreak havoc to crops, the economic impact of hail storms is close to six times greater!
 
-<p style="text-align: center;">
+## Extras
 
-<strong>----- End -----</strong>
+Identify the the top 5 event types for each variable under scrutiny.
 
-</p>
+```{r}
+
+top5_data <- bind_rows(
+    mutate(select(arrange(summary_data, desc(totFATALITIES)),
+                 count = totFATALITIES,
+                 event_type = EVTYPE),
+                 category = "FATALITIES")[1:5,],
+    mutate(select(arrange(summary_data, desc(totINJURIES)),
+                 count = totINJURIES,
+                 event_type = EVTYPE),
+                 category = "INJURIES")[1:5,],
+    mutate(select(arrange(summary_data, desc(totPROPDMG)),
+                 count = totPROPDMG,
+                 event_type = EVTYPE),
+                 category = "PROPDMG")[1:5,],
+    mutate(select(arrange(summary_data, desc(totCROPDMG)),
+                 count = totCROPDMG,
+                 event_type = EVTYPE),
+                 category = "CROPDMG")[1:5,])
+
+top5_data <- top5_data %>% mutate(meanN = ((count - mean(count))
+                                        / sd(count)),
+                                  minmaxN = (count - min(count))
+                                          / (max(count) - min(count)))
+
+select(top5_data, category, event_type, minmaxN) %>%
+             group_by(category) %>%
+             kbl(caption = "Figure 2: Top 5 most severe storm event types") %>% 
+             kable_material(c("basic")) %>%
+             collapse_rows(valign = "top")
+
+```
+
+[Terms used in the plots]{.underline}
+
+-   *Consequence* - umbrella term for the variables under scrutiny: `FATALITIES`, `INJURIES`, `PROPDMG`, `CROPDMG`
+-   *Severity* - the normalized totals of each consequence
+-   *Peril* - synonym for storm event type
+
+The plots below show the severity of storms:
+
+-   by Peril
+-   by Consequence
+
+```{r}
+p_minmaxN <- ggplot(data=top5_data, aes(fill=category, y=minmaxN, x=event_type)) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Peril",
+       y = "Severity",
+  title = "Severity  by Peril") + 
+  scale_fill_brewer(palette=4, direction=-1)
+
+p_byConsequence <- ggplot(data=top5_data, aes(fill=event_type, y=minmaxN, x=category)) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Consequence",
+       y = "Severity",
+  title = "Severity by Consequence",
+  subtitle = "mean normalized") + 
+  scale_fill_brewer(type = "qualitative", palette = "Set3")
+
+grid.arrange(p_minmaxN, p_byConsequence, ncol = 2, top="Figure 3: Severities by Peril and Consequence")
+```
+
+<p style="text-align: center;"><strong>----- End -----</strong></p>

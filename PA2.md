@@ -1,7 +1,7 @@
 ---
 title: "Reproducible Research: Peer Assessment 2"
 author: "SlowLearner"
-date: "2025-05-23"
+date: "2025-05-26"
 output: 
   html_document:
     toc: TRUE
@@ -71,6 +71,21 @@ library(kableExtra)
 ```
 
 ``` r
+library(gridExtra)
+```
+
+```
+## 
+## Attaching package: 'gridExtra'
+```
+
+```
+## The following object is masked from 'package:dplyr':
+## 
+##     combine
+```
+
+``` r
 local_zip <- "StormData.bz2"
 local_csv <- "StormData.csv"
 source_url <- "https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2"
@@ -98,7 +113,7 @@ sessionInfo()
 ## [1] stats     graphics  grDevices utils     datasets  methods   base     
 ## 
 ## other attached packages:
-## [1] kableExtra_1.4.0 dplyr_1.1.4      ggplot2_3.5.1   
+## [1] gridExtra_2.3    kableExtra_1.4.0 dplyr_1.1.4      ggplot2_3.5.1   
 ## 
 ## loaded via a namespace (and not attached):
 ##  [1] gtable_0.3.5      jsonlite_1.8.8    compiler_4.3.3    tidyselect_1.2.1 
@@ -122,8 +137,7 @@ sessionInfo()
 
 The source data for analysis is a compressed comma separated values (.csv) located at <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2>.
 
-We start with this web-located file on cloudfront.net:\
-1. The file is downloaded to a local file folder.
+We start with this web-located file on cloudfront.net: 1. The file is downloaded to a local file folder.
 
 
 ``` r
@@ -237,8 +251,8 @@ gc()
 
 ```
 ##            used  (Mb) gc trigger   (Mb)  max used   (Mb)
-## Ncells  1437676  76.8    2500750  133.6   1661138   88.8
-## Vcells 60516596 461.8  177302332 1352.8 221627888 1690.9
+## Ncells  1438971  76.9    2503130  133.7   1662060   88.8
+## Vcells 60519266 461.8  177304300 1352.8 221630335 1691.0
 ```
 
 ------------------------------------------------------------------------
@@ -247,8 +261,8 @@ gc()
 
 The prepared file `storms_abbr)` is:
 
--   is grouped by event type `EVTYPE`
--   summarized to provide totals of each variable under scrutiny.
+-   grouped by event type `EVTYPE`
+-   summarized to provide totals of each variable under scrutiny
 
 Results are stored in `results_data`.
 
@@ -283,7 +297,8 @@ summary(summary_data)
 results_data <- summary_data %>%
                 filter(totFATALITIES == max(totFATALITIES) |
                        totINJURIES == max(totINJURIES) | 
-                           totPROPDMG == max(totPROPDMG) | totCROPDMG == max(totCROPDMG))
+                           totPROPDMG == max(totPROPDMG) |
+                           totCROPDMG == max(totCROPDMG))
 ```
 
 ## Results
@@ -308,13 +323,13 @@ The table below shows the event types that have the severest impact in terms of:
                               "Total Property Damage",
                               "Total Crop Damage")
     results_data %>% 
-                 kbl(caption = "Table 1: Storm event types with severest impact") %>% 
+                 kbl(caption = "Figure 1: Storm event types with severest impact") %>% 
                  add_header_above(c(" ", "Health" = 2, "Economic" = 2)) %>%
                  kable_material(c("basic"))
     ```
     
     <table class=" lightable-material" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
-    <caption>Table 1: Storm event types with severest impact</caption>
+    <caption>Figure 1: Storm event types with severest impact</caption>
      <thead>
     <tr>
     <th style="empty-cells: hide;border-bottom:hidden;" colspan="1"></th>
@@ -349,8 +364,191 @@ The table below shows the event types that have the severest impact in terms of:
 
     > *Tornadoes* are the most destructive storm events regarding fatalities, injuries and property damage.<br/><br/>*Hail* storms do the most damage to crops. Although tornadoes also wreak havoc to crops, the economic impact of hail storms is close to six times greater!
 
-<p style="text-align: center;">
+## Extras
 
-<strong>----- End -----</strong>
+Identify the the top 5 event types for each variable under scrutiny.
 
-</p>
+
+``` r
+top5_data <- bind_rows(
+    mutate(select(arrange(summary_data, desc(totFATALITIES)),
+                 count = totFATALITIES,
+                 event_type = EVTYPE),
+                 category = "FATALITIES")[1:5,],
+    mutate(select(arrange(summary_data, desc(totINJURIES)),
+                 count = totINJURIES,
+                 event_type = EVTYPE),
+                 category = "INJURIES")[1:5,],
+    mutate(select(arrange(summary_data, desc(totPROPDMG)),
+                 count = totPROPDMG,
+                 event_type = EVTYPE),
+                 category = "PROPDMG")[1:5,],
+    mutate(select(arrange(summary_data, desc(totCROPDMG)),
+                 count = totCROPDMG,
+                 event_type = EVTYPE),
+                 category = "CROPDMG")[1:5,])
+
+top5_data <- top5_data %>% mutate(meanN = ((count - mean(count))
+                                        / sd(count)),
+                                  minmaxN = (count - min(count))
+                                          / (max(count) - min(count)))
+
+select(top5_data, category, event_type, minmaxN) %>%
+             group_by(category) %>%
+             kbl(caption = "Figure 2: Top 5 most severe storm event types") %>% 
+             kable_material(c("basic")) %>%
+             collapse_rows(valign = "top")
+```
+
+<table class=" lightable-material" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+<caption>Figure 2: Top 5 most severe storm event types</caption>
+ <thead>
+  <tr>
+   <th style="text-align:left;"> category </th>
+   <th style="text-align:left;"> event_type </th>
+   <th style="text-align:right;"> minmaxN </th>
+  </tr>
+ </thead>
+<tbody>
+  <tr>
+   <td style="text-align:left;vertical-align: top !important;" rowspan="5"> FATALITIES </td>
+   <td style="text-align:left;"> TORNADO </td>
+   <td style="text-align:right;"> 0.0014999 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> EXCESSIVE HEAT </td>
+   <td style="text-align:right;"> 0.0003385 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> FLASH FLOOD </td>
+   <td style="text-align:right;"> 0.0000504 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> HEAT </td>
+   <td style="text-align:right;"> 0.0000377 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> LIGHTNING </td>
+   <td style="text-align:right;"> 0.0000000 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;vertical-align: top !important;" rowspan="5"> INJURIES </td>
+   <td style="text-align:left;"> TORNADO </td>
+   <td style="text-align:right;"> 0.0281898 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> TSTM WIND </td>
+   <td style="text-align:right;"> 0.0019122 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> FLOOD </td>
+   <td style="text-align:right;"> 0.0018599 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> EXCESSIVE HEAT </td>
+   <td style="text-align:right;"> 0.0017777 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> LIGHTNING </td>
+   <td style="text-align:right;"> 0.0013745 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;vertical-align: top !important;" rowspan="5"> PROPDMG </td>
+   <td style="text-align:left;"> TORNADO </td>
+   <td style="text-align:right;"> 1.0000000 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> FLASH FLOOD </td>
+   <td style="text-align:right;"> 0.4419537 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> TSTM WIND </td>
+   <td style="text-align:right;"> 0.4157477 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> FLOOD </td>
+   <td style="text-align:right;"> 0.2799747 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> THUNDERSTORM WIND </td>
+   <td style="text-align:right;"> 0.2727834 </td>
+  </tr>
+  <tr>
+   <td style="text-align:left;vertical-align: top !important;" rowspan="5"> CROPDMG </td>
+   <td style="text-align:left;"> HAIL </td>
+   <td style="text-align:right;"> 0.1802244 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> FLASH FLOOD </td>
+   <td style="text-align:right;"> 0.0555465 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> FLOOD </td>
+   <td style="text-align:right;"> 0.0520706 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> TSTM WIND </td>
+   <td style="text-align:right;"> 0.0337501 </td>
+  </tr>
+  <tr>
+   
+   <td style="text-align:left;"> TORNADO </td>
+   <td style="text-align:right;"> 0.0308903 </td>
+  </tr>
+</tbody>
+</table>
+
+[Terms used in the plots]{.underline}
+
+-   *Consequence* - umbrella term for the variables under scrutiny: `FATALITIES`, `INJURIES`, `PROPDMG`, `CROPDMG`
+-   *Severity* - the normalized totals of each consequence
+-   *Peril* - synonym for storm event type
+
+The plots below show the severity of storms:
+
+-   by Peril
+-   by Consequence
+
+Figure 3: Severities by Peril and Consequence
+
+``` r
+p_minmaxN <- ggplot(data=top5_data, aes(fill=category, y=minmaxN, x=event_type)) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Peril",
+       y = "Severity",
+  title = "Severity  by Peril") + 
+  scale_fill_brewer(palette=4, direction=-1)
+
+p_byConsequence <- ggplot(data=top5_data, aes(fill=event_type, y=minmaxN, x=category)) +
+  geom_bar(stat="identity") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(x = "Consequence",
+       y = "Severity",
+  title = "Severity by Consequence",
+  subtitle = "mean normalized") + 
+  scale_fill_brewer(type = "qualitative", palette = "Set3")
+
+grid.arrange(p_minmaxN, p_byConsequence, ncol = 2)
+```
+
+![](PA2_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+
+<p style="text-align: center;"><strong>----- End -----</strong></p>
