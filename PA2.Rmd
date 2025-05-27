@@ -9,6 +9,14 @@ output:
     toc_float: TRUE
     keep_md: true
 ---
+```{r include=FALSE}
+# knitr::opts_chunk$set(echo = FALSE)
+```
+------------------------------------------------------------------------
+
+# Severe weather events in the USA and their consequences
+
+------------------------------------------------------------------------
 
 ## Introduction
 
@@ -22,7 +30,13 @@ Q1. Across the United States, which types of events (as indicated in the EVTYPE 
 
 Q2. Across the United States, which types of events have the greatest economic consequences?
 
-We shall use the fatalities and injuries variables (`FATALITIES`, `INJURIES`) to identify event types [most harmful to population health]{.underline} (Q1)<br/> Fatalities and injuries variables are expressed as a count of individuals affected.<br/><br/> We shall use the property and crop damage variables (`PROPDMG`, `CROPDMG`) to identify event types with the [greatest economic consequences]{.underline} (Q2)<br/> Property and crop damage variables are expressed as dollar amounts.<br/><br/> We are not expected to qualify our analysis results either by location or date.
+Fatalities and injuries variables (`FATALITIES`, `INJURIES`) will be used to identify event types [most harmful to population health]{.underline} (Q1)<br/> Property and crop damage variables (`PROPDMG`, `CROPDMG`) will be used to identify event types with the [greatest economic consequences]{.underline} (Q2)<br/><br/> We are not expected to qualify our analysis results either by location or date.<br/><br/> The analysis variables are measured at 2 different scales:
+
+-   Fatalities and injuries variables are expressed as a count of individuals affected.
+
+-   Property and crop damage variables are expressed as dollar amounts.
+
+These variables are normalized up front to ensure they contribute equally to the analysis.
 
 ------------------------------------------------------------------------
 
@@ -53,7 +67,9 @@ sessionInfo()
 
 The source data for analysis is a compressed comma separated values (.csv) located at <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2>.
 
-We start with this web-located file on cloudfront.net: 1. The file is downloaded to a local file folder.
+#### Load data into R environment
+
+1.  The file is downloaded to a local file folder.
 
 ```{r}
     local_zip <- paste(data_dir, local_zip, sep='/')
@@ -64,8 +80,6 @@ We start with this web-located file on cloudfront.net: 1. The file is downloaded
     }
 
 ```
-
-#### Load data into R environment
 
 2.  Create the analysis input dataset `local_csv` using the `read.table` command (no need need to unzip the compressed file separately, this command handles automatically)
 3.  Provide some basic stats about the file created.
@@ -112,15 +126,22 @@ gc()
 
 ### Data Analysis
 
-The prepared file `storms_abbr)` is:
+The prepared file `storms_abbr` is processed by:
 
--   grouped by event type `EVTYPE`
--   summarized to provide totals of each variable under scrutiny
+-   normalizing the data
+-   grouping by event type `EVTYPE`
+-   summarizing to provide totals of each variable under scrutiny
 
 Results are stored in `results_data`.
 
 ```{r}
-summary_data <- summarize(group_by(storms_abbr, EVTYPE),
+normalize <- function(x) {
+    (x - min(x)) / (max(x) - min(x))
+}
+norm_data <- as.data.frame(lapply(storms_abbr[2:5], normalize))
+norm_data$EVTYPE <- storms_abbr$EVTYPE
+
+summary_data <- summarize(group_by(norm_data, EVTYPE),
                           totFATALITIES = sum(FATALITIES),
                           totINJURIES = sum(INJURIES),
                           totPROPDMG = sum(PROPDMG),
@@ -132,44 +153,22 @@ results_data <- summary_data %>%
                        totINJURIES == max(totINJURIES) | 
                            totPROPDMG == max(totPROPDMG) |
                            totCROPDMG == max(totCROPDMG))
-
-
 ```
+#### Plots
 
-## Results
+[Terms used in the plots]{.underline}
 
-The table below shows the event types that have the severest impact in terms of:
+-   *Consequence* - umbrella term for the variables under scrutiny: `FATALITIES`, `INJURIES`, `PROPDMG`, `CROPDMG`
+-   *Severity* - the normalized totals of each consequence
+-   *Peril* - synonym for storm / weather event type
 
--   Health (Question 1)
 
-    -   fatalities
-    -   injuries
 
--   Economic consequences (Question 2)
+`summary_data` is transformed into a list of the top 5 event types for each variable under scrutiny (`top5_data`).  
 
-    -   property damage
-    -   crop damage
-
-    ```{r}
-    colnames(results_data) <- c("Event Type",
-                              "Total Fatalities",
-                              "Total Injuries",
-                              "Total Property Damage",
-                              "Total Crop Damage")
-    results_data %>% 
-                 kbl(caption = "Figure 1: Storm event types with severest impact") %>% 
-                 add_header_above(c(" ", "Health" = 2, "Economic" = 2)) %>%
-                 kable_material(c("basic"))
-    ```
-
-    > *Tornadoes* are the most destructive storm events regarding fatalities, injuries and property damage.<br/><br/>*Hail* storms do the most damage to crops. Although tornadoes also wreak havoc to crops, the economic impact of hail storms is close to six times greater!
-
-## Extras
-
-Identify the the top 5 event types for each variable under scrutiny.
+The plots below show storm and other weather events by *Peril* and categorized by *Consequence* for the top 5 event types in terms of severity.
 
 ```{r}
-
 top5_data <- bind_rows(
     mutate(select(arrange(summary_data, desc(totFATALITIES)),
                  count = totFATALITIES,
@@ -188,51 +187,76 @@ top5_data <- bind_rows(
                  event_type = EVTYPE),
                  category = "CROPDMG")[1:5,])
 
-top5_data <- top5_data %>% mutate(meanN = ((count - mean(count))
-                                        / sd(count)),
-                                  minmaxN = (count - min(count))
-                                          / (max(count) - min(count)))
+p1 <- ggplot(data=top5_data[top5_data$category %in% c("FATALITIES", "INJURIES"),],
+       aes(fill=category, y=count, x=event_type)) +
+       geom_bar(stat="identity", width=.9) +
+       theme_minimal() +
+       theme(axis.text.x = element_text(angle = 45, hjust = 1),
+             plot.margin = margin(0,0.0,0.2,0.7, "cm")) +
+       labs(x = "Peril",
+            y = "Severity",
+       title = "Health outcomes") + 
+       scale_fill_brewer(palette=4, direction=-1)
 
-select(top5_data, category, event_type, minmaxN) %>%
+p2 <- ggplot(data=top5_data[top5_data$category %in% c("PROPDMG", "CROPDMG"),],
+       aes(fill=category, y=count, x=event_type)) +
+       geom_bar(stat="identity", width=.9) +
+       theme_minimal() +
+       theme(axis.text.x = element_text(angle = 45, hjust = 1),
+             plot.margin = margin(0,0.0,0.2,0.7, "cm")) +
+       labs(x = "Peril",
+            y = "Severity",
+       title = "Economic impact") + 
+       scale_fill_brewer(palette="Set3", direction=-1)
+
+grid.arrange(grobs = list(p1, p2), ncol = 2, top="Figure 1: Severities by Peril")
+
+```
+<br/><br/><br/>
+
+The data of `top5_data` (see table below) shows most clearly  that i) `EXCESSIVE HEAT` is amongst the top 5 health consequences, and ii) `FLASH FLOODS` are the 2^nd^ most severe economic consequence for both property and crop damage.
+
+Further analysis could be done to see how these have changed since measurements began.
+
+```{r}
+select(top5_data, category, event_type, count) %>%
              group_by(category) %>%
-             kbl(caption = "Figure 2: Top 5 most severe storm event types") %>% 
+             kbl(caption = "Table 1: Top 5 severe weather event types") %>% 
              kable_material(c("basic")) %>%
+             kable_styling(bootstrap_options = "striped",
+                           font_size = 12) %>%
              collapse_rows(valign = "top")
 
 ```
+## Results
 
-[Terms used in the plots]{.underline}
+The table below shows the event types that have the severest impact in terms of:
 
--   *Consequence* - umbrella term for the variables under scrutiny: `FATALITIES`, `INJURIES`, `PROPDMG`, `CROPDMG`
--   *Severity* - the normalized totals of each consequence
--   *Peril* - synonym for storm event type
+-   Health (Q1)
 
-The plots below show the severity of storms:
+    -   fatalities
+    -   injuries
 
--   by Peril
--   by Consequence
+-   Economic consequences (Q2)
 
-```{r}
-p_minmaxN <- ggplot(data=top5_data, aes(fill=category, y=minmaxN, x=event_type)) +
-  geom_bar(stat="identity") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Peril",
-       y = "Severity",
-  title = "Severity  by Peril") + 
-  scale_fill_brewer(palette=4, direction=-1)
+    -   property damage
+    -   crop damage  
 
-p_byConsequence <- ggplot(data=top5_data, aes(fill=event_type, y=minmaxN, x=category)) +
-  geom_bar(stat="identity") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Consequence",
-       y = "Severity",
-  title = "Severity by Consequence",
-  subtitle = "mean normalized") + 
-  scale_fill_brewer(type = "qualitative", palette = "Set3")
+    ```{r}
+    colnames(results_data) <- c("Event Type",
+                              "Total Fatalities",
+                              "Total Injuries",
+                              "Total Property Damage",
+                              "Total Crop Damage")
+    results_data %>% 
+                 kbl(caption = "Table 2: Weather events with severest impact") %>% 
+                 add_header_above(c(" ", "Health" = 2, "Economic" = 2)) %>%
+                 kable_styling(bootstrap_options = "striped",
+                               font_size = 12) %>%
+                 kable_material(c("basic"))
+    ```
+### Conclusion
 
-grid.arrange(p_minmaxN, p_byConsequence, ncol = 2, top="Figure 3: Severities by Peril and Consequence")
-```
+    > *Tornadoes* are the most destructive weather events regarding fatalities, injuries and property damage.<br/><br/>*Hail* storms do the most damage to crops. Although tornadoes also wreak havoc to crops, the economic impact of hail storms is close to six times greater!
 
 <p style="text-align: center;"><strong>----- End -----</strong></p>

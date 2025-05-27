@@ -1,7 +1,7 @@
 ---
 title: "Reproducible Research: Peer Assessment 2"
 author: "SlowLearner"
-date: "2025-05-26"
+date: "2025-05-27"
 output: 
   html_document:
     toc: TRUE
@@ -9,6 +9,12 @@ output:
     toc_float: TRUE
     keep_md: true
 ---
+
+------------------------------------------------------------------------
+
+# Severe weather events in the USA and their consequences
+
+------------------------------------------------------------------------
 
 ## Introduction
 
@@ -22,7 +28,13 @@ Q1. Across the United States, which types of events (as indicated in the EVTYPE 
 
 Q2. Across the United States, which types of events have the greatest economic consequences?
 
-We shall use the fatalities and injuries variables (`FATALITIES`, `INJURIES`) to identify event types [most harmful to population health]{.underline} (Q1)<br/> Fatalities and injuries variables are expressed as a count of individuals affected.<br/><br/> We shall use the property and crop damage variables (`PROPDMG`, `CROPDMG`) to identify event types with the [greatest economic consequences]{.underline} (Q2)<br/> Property and crop damage variables are expressed as dollar amounts.<br/><br/> We are not expected to qualify our analysis results either by location or date.
+Fatalities and injuries variables (`FATALITIES`, `INJURIES`) will be used to identify event types [most harmful to population health]{.underline} (Q1)<br/> Property and crop damage variables (`PROPDMG`, `CROPDMG`) will be used to identify event types with the [greatest economic consequences]{.underline} (Q2)<br/><br/> We are not expected to qualify our analysis results either by location or date.<br/><br/> The analysis variables are measured at 2 different scales:
+
+-   Fatalities and injuries variables are expressed as a count of individuals affected.
+
+-   Property and crop damage variables are expressed as dollar amounts.
+
+These variables are normalized up front to ensure they contribute equally to the analysis.
 
 ------------------------------------------------------------------------
 
@@ -137,7 +149,9 @@ sessionInfo()
 
 The source data for analysis is a compressed comma separated values (.csv) located at <https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2FStormData.csv.bz2>.
 
-We start with this web-located file on cloudfront.net: 1. The file is downloaded to a local file folder.
+#### Load data into R environment
+
+1.  The file is downloaded to a local file folder.
 
 
 ``` r
@@ -148,8 +162,6 @@ We start with this web-located file on cloudfront.net: 1. The file is downloaded
         download.file(source_url, destfile=local_zip , mode='wb')
     }
 ```
-
-#### Load data into R environment
 
 2.  Create the analysis input dataset `local_csv` using the `read.table` command (no need need to unzip the compressed file separately, this command handles automatically)
 3.  Provide some basic stats about the file created.
@@ -251,24 +263,31 @@ gc()
 
 ```
 ##            used  (Mb) gc trigger   (Mb)  max used   (Mb)
-## Ncells  1438971  76.9    2503130  133.7   1662060   88.8
-## Vcells 60519266 461.8  177304300 1352.8 221630335 1691.0
+## Ncells  1439012  76.9    2503190  133.7   1662101   88.8
+## Vcells 60519346 461.8  177304376 1352.8 221630414 1691.0
 ```
 
 ------------------------------------------------------------------------
 
 ### Data Analysis
 
-The prepared file `storms_abbr)` is:
+The prepared file `storms_abbr` is processed by:
 
--   grouped by event type `EVTYPE`
--   summarized to provide totals of each variable under scrutiny
+-   normalizing the data
+-   grouping by event type `EVTYPE`
+-   summarizing to provide totals of each variable under scrutiny
 
 Results are stored in `results_data`.
 
 
 ``` r
-summary_data <- summarize(group_by(storms_abbr, EVTYPE),
+normalize <- function(x) {
+    (x - min(x)) / (max(x) - min(x))
+}
+norm_data <- as.data.frame(lapply(storms_abbr[2:5], normalize))
+norm_data$EVTYPE <- storms_abbr$EVTYPE
+
+summary_data <- summarize(group_by(norm_data, EVTYPE),
                           totFATALITIES = sum(FATALITIES),
                           totINJURIES = sum(INJURIES),
                           totPROPDMG = sum(PROPDMG),
@@ -277,20 +296,20 @@ summary(summary_data)
 ```
 
 ```
-##     EVTYPE          totFATALITIES      totINJURIES        totPROPDMG     
-##  Length:985         Min.   :   0.00   Min.   :    0.0   Min.   :      0  
-##  Class :character   1st Qu.:   0.00   1st Qu.:    0.0   1st Qu.:      0  
-##  Mode  :character   Median :   0.00   Median :    0.0   Median :      0  
-##                     Mean   :  15.38   Mean   :  142.7   Mean   :  11050  
-##                     3rd Qu.:   0.00   3rd Qu.:    0.0   3rd Qu.:     35  
-##                     Max.   :5633.00   Max.   :91346.0   Max.   :3212258  
-##    totCROPDMG    
-##  Min.   :     0  
-##  1st Qu.:     0  
-##  Median :     0  
-##  Mean   :  1399  
-##  3rd Qu.:     0  
-##  Max.   :579596
+##     EVTYPE          totFATALITIES      totINJURIES         totPROPDMG     
+##  Length:985         Min.   :0.00000   Min.   : 0.00000   Min.   :  0.000  
+##  Class :character   1st Qu.:0.00000   1st Qu.: 0.00000   1st Qu.:  0.000  
+##  Mode  :character   Median :0.00000   Median : 0.00000   Median :  0.000  
+##                     Mean   :0.02637   Mean   : 0.08392   Mean   :  2.210  
+##                     3rd Qu.:0.00000   3rd Qu.: 0.00000   3rd Qu.:  0.007  
+##                     Max.   :9.66209   Max.   :53.73294   Max.   :642.452  
+##    totCROPDMG     
+##  Min.   :  0.000  
+##  1st Qu.:  0.000  
+##  Median :  0.000  
+##  Mean   :  1.413  
+##  3rd Qu.:  0.000  
+##  Max.   :585.451
 ```
 
 ``` r
@@ -300,73 +319,19 @@ results_data <- summary_data %>%
                            totPROPDMG == max(totPROPDMG) |
                            totCROPDMG == max(totCROPDMG))
 ```
+#### Plots
 
-## Results
+[Terms used in the plots]{.underline}
 
-The table below shows the event types that have the severest impact in terms of:
+-   *Consequence* - umbrella term for the variables under scrutiny: `FATALITIES`, `INJURIES`, `PROPDMG`, `CROPDMG`
+-   *Severity* - the normalized totals of each consequence
+-   *Peril* - synonym for storm / weather event type
 
--   Health (Question 1)
 
-    -   fatalities
-    -   injuries
 
--   Economic consequences (Question 2)
+`summary_data` is transformed into a list of the top 5 event types for each variable under scrutiny (`top5_data`).  
 
-    -   property damage
-    -   crop damage
-
-    
-    ``` r
-    colnames(results_data) <- c("Event Type",
-                              "Total Fatalities",
-                              "Total Injuries",
-                              "Total Property Damage",
-                              "Total Crop Damage")
-    results_data %>% 
-                 kbl(caption = "Figure 1: Storm event types with severest impact") %>% 
-                 add_header_above(c(" ", "Health" = 2, "Economic" = 2)) %>%
-                 kable_material(c("basic"))
-    ```
-    
-    <table class=" lightable-material" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
-    <caption>Figure 1: Storm event types with severest impact</caption>
-     <thead>
-    <tr>
-    <th style="empty-cells: hide;border-bottom:hidden;" colspan="1"></th>
-    <th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="2"><div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">Health</div></th>
-    <th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="2"><div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">Economic</div></th>
-    </tr>
-      <tr>
-       <th style="text-align:left;"> Event Type </th>
-       <th style="text-align:right;"> Total Fatalities </th>
-       <th style="text-align:right;"> Total Injuries </th>
-       <th style="text-align:right;"> Total Property Damage </th>
-       <th style="text-align:right;"> Total Crop Damage </th>
-      </tr>
-     </thead>
-    <tbody>
-      <tr>
-       <td style="text-align:left;"> HAIL </td>
-       <td style="text-align:right;"> 15 </td>
-       <td style="text-align:right;"> 1361 </td>
-       <td style="text-align:right;"> 688693.4 </td>
-       <td style="text-align:right;"> 579596.3 </td>
-      </tr>
-      <tr>
-       <td style="text-align:left;"> TORNADO </td>
-       <td style="text-align:right;"> 5633 </td>
-       <td style="text-align:right;"> 91346 </td>
-       <td style="text-align:right;"> 3212258.2 </td>
-       <td style="text-align:right;"> 100018.5 </td>
-      </tr>
-    </tbody>
-    </table>
-
-    > *Tornadoes* are the most destructive storm events regarding fatalities, injuries and property damage.<br/><br/>*Hail* storms do the most damage to crops. Although tornadoes also wreak havoc to crops, the economic impact of hail storms is close to six times greater!
-
-## Extras
-
-Identify the the top 5 event types for each variable under scrutiny.
+The plots below show storm and other weather events by *Peril* and categorized by *Consequence* for the top 5 event types in terms of severity.
 
 
 ``` r
@@ -388,167 +353,225 @@ top5_data <- bind_rows(
                  event_type = EVTYPE),
                  category = "CROPDMG")[1:5,])
 
-top5_data <- top5_data %>% mutate(meanN = ((count - mean(count))
-                                        / sd(count)),
-                                  minmaxN = (count - min(count))
-                                          / (max(count) - min(count)))
+p1 <- ggplot(data=top5_data[top5_data$category %in% c("FATALITIES", "INJURIES"),],
+       aes(fill=category, y=count, x=event_type)) +
+       geom_bar(stat="identity", width=.9) +
+       theme_minimal() +
+       theme(axis.text.x = element_text(angle = 45, hjust = 1),
+             plot.margin = margin(0,0.0,0.2,0.7, "cm")) +
+       labs(x = "Peril",
+            y = "Severity",
+       title = "Health outcomes") + 
+       scale_fill_brewer(palette=4, direction=-1)
 
-select(top5_data, category, event_type, minmaxN) %>%
+p2 <- ggplot(data=top5_data[top5_data$category %in% c("PROPDMG", "CROPDMG"),],
+       aes(fill=category, y=count, x=event_type)) +
+       geom_bar(stat="identity", width=.9) +
+       theme_minimal() +
+       theme(axis.text.x = element_text(angle = 45, hjust = 1),
+             plot.margin = margin(0,0.0,0.2,0.7, "cm")) +
+       labs(x = "Peril",
+            y = "Severity",
+       title = "Economic impact") + 
+       scale_fill_brewer(palette="Set3", direction=-1)
+
+grid.arrange(grobs = list(p1, p2), ncol = 2, top="Figure 1: Severities by Peril")
+```
+
+![](PA2_files/figure-html/unnamed-chunk-9-1.png)<!-- -->
+<br/><br/><br/>
+
+The data of `top5_data` (see table below) shows most clearly  that i) `EXCESSIVE HEAT` is amongst the top 5 health consequences, and ii) `FLASH FLOODS` are the 2^nd^ most severe economic consequence for both property and crop damage.
+
+Further analysis could be done to see how these have changed since measurements began.
+
+
+``` r
+select(top5_data, category, event_type, count) %>%
              group_by(category) %>%
-             kbl(caption = "Figure 2: Top 5 most severe storm event types") %>% 
+             kbl(caption = "Table 1: Top 5 severe weather event types") %>% 
              kable_material(c("basic")) %>%
+             kable_styling(bootstrap_options = "striped",
+                           font_size = 12) %>%
              collapse_rows(valign = "top")
 ```
 
-<table class=" lightable-material" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
-<caption>Figure 2: Top 5 most severe storm event types</caption>
+<table class=" lightable-material table table-striped" style='font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto; font-size: 12px; margin-left: auto; margin-right: auto;'>
+<caption style="font-size: initial !important;">Table 1: Top 5 severe weather event types</caption>
  <thead>
   <tr>
    <th style="text-align:left;"> category </th>
    <th style="text-align:left;"> event_type </th>
-   <th style="text-align:right;"> minmaxN </th>
+   <th style="text-align:right;"> count </th>
   </tr>
  </thead>
 <tbody>
   <tr>
    <td style="text-align:left;vertical-align: top !important;" rowspan="5"> FATALITIES </td>
    <td style="text-align:left;"> TORNADO </td>
-   <td style="text-align:right;"> 0.0014999 </td>
+   <td style="text-align:right;"> 9.662093 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> EXCESSIVE HEAT </td>
-   <td style="text-align:right;"> 0.0003385 </td>
+   <td style="text-align:right;"> 3.264151 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> FLASH FLOOD </td>
-   <td style="text-align:right;"> 0.0000504 </td>
+   <td style="text-align:right;"> 1.677530 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> HEAT </td>
-   <td style="text-align:right;"> 0.0000377 </td>
+   <td style="text-align:right;"> 1.607204 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> LIGHTNING </td>
-   <td style="text-align:right;"> 0.0000000 </td>
+   <td style="text-align:right;"> 1.399657 </td>
   </tr>
   <tr>
    <td style="text-align:left;vertical-align: top !important;" rowspan="5"> INJURIES </td>
    <td style="text-align:left;"> TORNADO </td>
-   <td style="text-align:right;"> 0.0281898 </td>
+   <td style="text-align:right;"> 53.732941 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> TSTM WIND </td>
-   <td style="text-align:right;"> 0.0019122 </td>
+   <td style="text-align:right;"> 4.092353 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> FLOOD </td>
-   <td style="text-align:right;"> 0.0018599 </td>
+   <td style="text-align:right;"> 3.993529 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> EXCESSIVE HEAT </td>
-   <td style="text-align:right;"> 0.0017777 </td>
+   <td style="text-align:right;"> 3.838235 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> LIGHTNING </td>
-   <td style="text-align:right;"> 0.0013745 </td>
+   <td style="text-align:right;"> 3.076471 </td>
   </tr>
   <tr>
    <td style="text-align:left;vertical-align: top !important;" rowspan="5"> PROPDMG </td>
    <td style="text-align:left;"> TORNADO </td>
-   <td style="text-align:right;"> 1.0000000 </td>
+   <td style="text-align:right;"> 642.451632 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> FLASH FLOOD </td>
-   <td style="text-align:right;"> 0.4419537 </td>
+   <td style="text-align:right;"> 284.024918 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> TSTM WIND </td>
-   <td style="text-align:right;"> 0.4157477 </td>
+   <td style="text-align:right;"> 267.193122 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> FLOOD </td>
-   <td style="text-align:right;"> 0.2799747 </td>
+   <td style="text-align:right;"> 179.987696 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> THUNDERSTORM WIND </td>
-   <td style="text-align:right;"> 0.2727834 </td>
+   <td style="text-align:right;"> 175.368834 </td>
   </tr>
   <tr>
    <td style="text-align:left;vertical-align: top !important;" rowspan="5"> CROPDMG </td>
    <td style="text-align:left;"> HAIL </td>
-   <td style="text-align:right;"> 0.1802244 </td>
+   <td style="text-align:right;"> 585.450788 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> FLASH FLOOD </td>
-   <td style="text-align:right;"> 0.0555465 </td>
+   <td style="text-align:right;"> 181.010566 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> FLOOD </td>
-   <td style="text-align:right;"> 0.0520706 </td>
+   <td style="text-align:right;"> 169.735232 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> TSTM WIND </td>
-   <td style="text-align:right;"> 0.0337501 </td>
+   <td style="text-align:right;"> 110.305657 </td>
   </tr>
   <tr>
    
    <td style="text-align:left;"> TORNADO </td>
-   <td style="text-align:right;"> 0.0308903 </td>
+   <td style="text-align:right;"> 101.028808 </td>
   </tr>
 </tbody>
 </table>
+## Results
 
-[Terms used in the plots]{.underline}
+The table below shows the event types that have the severest impact in terms of:
 
--   *Consequence* - umbrella term for the variables under scrutiny: `FATALITIES`, `INJURIES`, `PROPDMG`, `CROPDMG`
--   *Severity* - the normalized totals of each consequence
--   *Peril* - synonym for storm event type
+-   Health (Q1)
 
-The plots below show the severity of storms:
+    -   fatalities
+    -   injuries
 
--   by Peril
--   by Consequence
+-   Economic consequences (Q2)
 
-Figure 3: Severities by Peril and Consequence
+    -   property damage
+    -   crop damage  
 
-``` r
-p_minmaxN <- ggplot(data=top5_data, aes(fill=category, y=minmaxN, x=event_type)) +
-  geom_bar(stat="identity") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Peril",
-       y = "Severity",
-  title = "Severity  by Peril") + 
-  scale_fill_brewer(palette=4, direction=-1)
+    
+    ``` r
+    colnames(results_data) <- c("Event Type",
+                              "Total Fatalities",
+                              "Total Injuries",
+                              "Total Property Damage",
+                              "Total Crop Damage")
+    results_data %>% 
+                 kbl(caption = "Table 2: Weather events with severest impact") %>% 
+                 add_header_above(c(" ", "Health" = 2, "Economic" = 2)) %>%
+                 kable_styling(bootstrap_options = "striped",
+                               font_size = 12) %>%
+                 kable_material(c("basic"))
+    ```
+    
+    <table class="table table-striped lightable-material" style='font-size: 12px; margin-left: auto; margin-right: auto; font-family: "Source Sans Pro", helvetica, sans-serif; margin-left: auto; margin-right: auto;'>
+    <caption style="font-size: initial !important;">Table 2: Weather events with severest impact</caption>
+     <thead>
+    <tr>
+    <th style="empty-cells: hide;border-bottom:hidden;" colspan="1"></th>
+    <th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="2"><div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">Health</div></th>
+    <th style="border-bottom:hidden;padding-bottom:0; padding-left:3px;padding-right:3px;text-align: center; " colspan="2"><div style="border-bottom: 1px solid #ddd; padding-bottom: 5px; ">Economic</div></th>
+    </tr>
+      <tr>
+       <th style="text-align:left;"> Event Type </th>
+       <th style="text-align:right;"> Total Fatalities </th>
+       <th style="text-align:right;"> Total Injuries </th>
+       <th style="text-align:right;"> Total Property Damage </th>
+       <th style="text-align:right;"> Total Crop Damage </th>
+      </tr>
+     </thead>
+    <tbody>
+      <tr>
+       <td style="text-align:left;"> HAIL </td>
+       <td style="text-align:right;"> 0.025729 </td>
+       <td style="text-align:right;"> 0.8005882 </td>
+       <td style="text-align:right;"> 137.7387 </td>
+       <td style="text-align:right;"> 585.4508 </td>
+      </tr>
+      <tr>
+       <td style="text-align:left;"> TORNADO </td>
+       <td style="text-align:right;"> 9.662093 </td>
+       <td style="text-align:right;"> 53.7329412 </td>
+       <td style="text-align:right;"> 642.4516 </td>
+       <td style="text-align:right;"> 101.0288 </td>
+      </tr>
+    </tbody>
+    </table>
+### Conclusion
 
-p_byConsequence <- ggplot(data=top5_data, aes(fill=event_type, y=minmaxN, x=category)) +
-  geom_bar(stat="identity") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  labs(x = "Consequence",
-       y = "Severity",
-  title = "Severity by Consequence",
-  subtitle = "mean normalized") + 
-  scale_fill_brewer(type = "qualitative", palette = "Set3")
-
-grid.arrange(p_minmaxN, p_byConsequence, ncol = 2)
-```
-
-![](PA2_files/figure-html/unnamed-chunk-10-1.png)<!-- -->
+    > *Tornadoes* are the most destructive weather events regarding fatalities, injuries and property damage.<br/><br/>*Hail* storms do the most damage to crops. Although tornadoes also wreak havoc to crops, the economic impact of hail storms is close to six times greater!
 
 <p style="text-align: center;"><strong>----- End -----</strong></p>
